@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Students — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Students', crumb: 'People · Students', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render(filter) {
+    const all = Data.students();
+    const list = filter ? all.filter(s => (s.fullName + s.email + s.studentId).toLowerCase().includes(filter)) : all;
+    document.getElementById('rows').innerHTML = list.map(s => {
+      const c = Data.findCourse(s.course);
+      const p = Data.progressFor(s.id, s.course);
+      return `<tr>
+        <td><div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:34px; height:34px; border-radius:50%; background:var(--primary-light); color:var(--primary-dark); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;">${UI.initials(s.fullName)}</div>
+          <div><div style="font-weight:600;">${s.fullName}</div><div class="text-xs text-muted">${s.studentId}</div></div></div></td>
+        <td>${s.email}</td>
+        <td>${c ? c.title : '—'}</td>
+        <td><div class="progress-bar" style="width:120px;"><span style="width:${p ? p.percent : 0}%"></span></div><div class="text-xs text-muted">${p ? p.percent : 0}%</div></td>
+        <td>${s.verified ? '<span class="pill success">Verified</span>' : '<span class="pill warning">Unverified</span>'}</td>
+        <td class="actions">
+          <button class="btn btn-sm btn-outline" data-view="${s.id}"><i class="fa-solid fa-eye"></i></button>
+          <button class="btn btn-sm btn-outline" data-rm="${s.id}"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" class="empty">No students.</td></tr>';
+
+    document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+      const s = Data.findStudent(b.dataset.view); if (!s) return;
+      alert(`${s.fullName}\n${s.studentId} · ${s.email}\nMobile: ${s.mobile}\nDOB: ${s.dob}\nLocation: ${s.city}, ${s.state}\nQualification: ${s.qualification}`);
+    }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Remove this student?')) return;
+      const id = b.dataset.rm;
+      Data.save(Data.KEYS.students, Data.students().filter(s => s.id !== id));
+      Data.save(Data.KEYS.enrolments, Data.enrolments().filter(e => e.studentId !== id));
+      UI.toast('Student removed.', 'info'); render(filter);
+    }));
+  }
+
+  content.innerHTML = `
+    <div class="page-head">
+      <div><div class="desc">All registered students. Enrol or manage individually.</div></div>
+      <div class="split">
+        <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="q" placeholder="Search name, email, ID…"></div>
+        <button class="btn btn-primary" id="enrol"><i class="fa-solid fa-user-plus"></i> Enrol Student</button>
+      </div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Student</th><th>Email</th><th>Course</th><th>Progress</th><th>Status</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>`;
+
+  render('');
+  document.getElementById('q').addEventListener('input', (e) => render(e.target.value.toLowerCase()));
+  document.getElementById('enrol').addEventListener('click', () => {
+    const name = prompt('Full name?'); if (!name) return;
+    const email = prompt('Email?'); if (!email) return;
+    const courses = Data.courses();
+    const cid = prompt('Course ID? Choose one of:\n' + courses.map(c => `${c.id} — ${c.title}`).join('\n'), courses[0].id);
+    if (!cid) return;
+    const sid = 'SYPA' + new Date().getFullYear() + String(Math.floor(Math.random() * 9000) + 1000);
+    const s = { id: Data.uid('stu'), studentId: sid, fullName: name, email, mobile: '', dob: '', gender: '', city: '', state: '', course: cid, qualification: '', occupation: '', password: 'student123', verified: true, createdAt: new Date().toISOString().slice(0,10) };
+    Data.addStudent(s);
+    const ens = Data.enrolments(); ens.push({ studentId: s.id, courseId: cid, batchId: null, enrolledAt: s.createdAt });
+    Data.save(Data.KEYS.enrolments, ens);
+    UI.toast('Enrolled. Default password: student123', 'success'); render('');
+  });
+}
+</script>
+</body>
+</html>

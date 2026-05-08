@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Take Test — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'Attempt Assessment', crumb: 'Learning · Tests & Assignments' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+  const id = new URLSearchParams(location.search).get('id');
+  const a = Data.assessments().find(x => x.id === id);
+  if (!a) { content.innerHTML = '<div class="empty">Assessment not found.</div>'; }
+  else {
+    const course = Data.findCourse(a.courseId);
+    if (a.type === 'mcq') {
+      const answers = new Array(a.questions.length).fill(null);
+      content.innerHTML = `
+        <div class="card">
+          <div class="card-head"><div><h3>${a.title}</h3><div class="text-sm text-muted">${course ? course.title : ''}</div></div>
+            <div class="split">
+              <span class="pill purple">${a.questions.length} questions</span>
+              <span class="pill info">${a.marks} marks</span>
+              ${a.durationMin ? `<span class="pill warning">${a.durationMin} min</span>` : ''}
+            </div></div>
+          <div id="qs"></div>
+          <div class="flex justify-between mt-6">
+            <a href="assessments.html" class="btn btn-ghost"><i class="fa-solid fa-chevron-left"></i> Back</a>
+            <button class="btn btn-primary btn-lg" id="submit"><i class="fa-solid fa-paper-plane"></i> Submit Test</button>
+          </div>
+        </div>`;
+      const host = document.getElementById('qs');
+      a.questions.forEach((q, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'quiz-q';
+        wrap.innerHTML = `<div class="q-num">Question ${i + 1}</div>
+          <div class="q-text">${q.q}</div>
+          ${q.options.map((opt, j) => `<label class="quiz-opt"><input type="radio" name="q${i}" value="${j}"> ${opt}</label>`).join('')}`;
+        host.appendChild(wrap);
+        wrap.querySelectorAll('.quiz-opt').forEach((opt, j) => opt.addEventListener('click', () => {
+          wrap.querySelectorAll('.quiz-opt').forEach(o => o.classList.remove('selected'));
+          opt.classList.add('selected');
+          opt.querySelector('input').checked = true;
+          answers[i] = j;
+        }));
+      });
+
+      document.getElementById('submit').addEventListener('click', () => {
+        if (answers.some(x => x === null)) { if (!confirm('Some questions are unanswered. Submit anyway?')) return; }
+        let correct = 0;
+        a.questions.forEach((q, i) => { if (answers[i] === q.answer) correct++; });
+        const score = Math.round((correct / a.questions.length) * a.marks);
+        Data.addSubmission({ id: Data.uid('sub'), assessmentId: a.id, studentId: session.userId, score, total: a.marks, submittedAt: new Date().toISOString().slice(0,10), feedback: 'Auto-graded — instructor will review if needed.' });
+        UI.toast('Submitted! You scored ' + score + '/' + a.marks, 'success');
+        setTimeout(() => location.href = 'grades.html', 800);
+      });
+    } else {
+      content.innerHTML = `
+        <div class="card">
+          <div class="card-head"><div><h3>${a.title}</h3><div class="text-sm text-muted">${course ? course.title : ''} · Assignment</div></div>
+            <span class="pill info">${a.marks} marks</span></div>
+          <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i><div><strong>Prompt:</strong> ${a.prompt || '—'}</div></div>
+          <div class="form-group"><label>Your submission (text)</label>
+            <textarea id="text" class="form-control" rows="10" placeholder="Type your assignment here..."></textarea></div>
+          <div class="form-group"><label>Or attach a file</label>
+            <input type="file" class="form-control"></div>
+          <div class="flex justify-between mt-4">
+            <a href="assessments.html" class="btn btn-ghost"><i class="fa-solid fa-chevron-left"></i> Back</a>
+            <button class="btn btn-primary btn-lg" id="submit"><i class="fa-solid fa-paper-plane"></i> Submit Assignment</button>
+          </div>
+        </div>`;
+      document.getElementById('submit').addEventListener('click', () => {
+        const text = document.getElementById('text').value.trim();
+        if (text.length < 50) return UI.toast('Please write at least a paragraph or attach a file.', 'warning');
+        Data.addSubmission({ id: Data.uid('sub'), assessmentId: a.id, studentId: session.userId, score: null, total: a.marks, submittedAt: new Date().toISOString().slice(0,10), feedback: null, text });
+        UI.toast('Assignment submitted for review!', 'success');
+        setTimeout(() => location.href = 'grades.html', 800);
+      });
+    }
+  }
+}
+</script>
+</body>
+</html>

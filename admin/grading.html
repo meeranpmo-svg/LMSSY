@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grading — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Grading', crumb: 'Assessment · Grading', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const subs = Data.submissions();
+    content.innerHTML = `
+      <div class="card">
+        <div class="card-head"><h3>All Submissions</h3><span class="text-sm text-muted">${subs.length} total</span></div>
+        <table class="table">
+          <thead><tr><th>Student</th><th>Assessment</th><th>Submitted</th><th>Score</th><th>Feedback</th><th></th></tr></thead>
+          <tbody>${subs.map(s => {
+            const stu = Data.findStudent(s.studentId);
+            const a = Data.assessments().find(x => x.id === s.assessmentId);
+            return `<tr>
+              <td>${stu ? stu.fullName : '—'}<div class="text-xs text-muted">${stu ? stu.studentId : ''}</div></td>
+              <td>${a ? a.title : '—'}</td>
+              <td>${SYPA.UI.fmtDate(s.submittedAt)}</td>
+              <td>${s.score != null ? `<span class="pill success">${s.score}/${s.total}</span>` : '<span class="pill warning">Pending</span>'}</td>
+              <td class="text-sm text-muted">${s.feedback || '—'}</td>
+              <td class="actions"><button class="btn btn-sm btn-primary" data-grade="${s.id}"><i class="fa-solid fa-pen"></i> Grade</button></td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="6" class="empty">No submissions.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.querySelectorAll('[data-grade]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.grade;
+      const list = Data.submissions(); const i = list.findIndex(s => s.id === id);
+      const a = Data.assessments().find(x => x.id === list[i].assessmentId);
+      const sc = parseInt(prompt(`Enter score out of ${a.marks}:`, list[i].score ?? ''), 10);
+      if (isNaN(sc)) return;
+      const fb = prompt('Feedback (optional):', list[i].feedback || '');
+      list[i].score = sc; list[i].total = a.marks; list[i].feedback = fb;
+      Data.save(Data.KEYS.submissions, list); UI.toast('Graded.', 'success'); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

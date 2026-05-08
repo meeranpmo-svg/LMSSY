@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assessments — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Assessments', crumb: 'Assessment · Manage', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const all = Data.assessments();
+    content.innerHTML = `
+      <div class="page-head">
+        <div><div class="desc">Create MCQ tests and assignments. Set time limits, marks, and publishing state.</div></div>
+        <button class="btn btn-primary" id="new"><i class="fa-solid fa-plus"></i> New Assessment</button>
+      </div>
+      <div class="card">
+        <table class="table">
+          <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Duration</th><th>Marks</th><th>Status</th><th></th></tr></thead>
+          <tbody>${all.map(a => {
+            const c = Data.findCourse(a.courseId);
+            return `<tr>
+              <td><strong>${a.title}</strong></td>
+              <td>${c ? c.title : '—'}</td>
+              <td><span class="pill ${a.type === 'mcq' ? 'purple' : 'info'}">${a.type === 'mcq' ? 'MCQ' : 'Assignment'}</span></td>
+              <td>${a.durationMin ? a.durationMin + ' min' : '—'}</td>
+              <td>${a.marks}</td>
+              <td><span class="pill ${a.status === 'published' ? 'success' : 'warning'}">${a.status}</span></td>
+              <td class="actions">
+                <button class="btn btn-sm btn-outline" data-toggle="${a.id}"><i class="fa-solid fa-eye${a.status === 'published' ? '-slash' : ''}"></i></button>
+                <button class="btn btn-sm btn-outline" data-rm="${a.id}"><i class="fa-solid fa-trash"></i></button>
+              </td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="7" class="empty">No assessments yet.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('new').addEventListener('click', () => {
+      const title = prompt('Title?'); if (!title) return;
+      const courses = Data.courses();
+      const cid = prompt('Course ID:\n' + courses.map(c => `${c.id} — ${c.title}`).join('\n'), courses[0].id); if (!cid) return;
+      const type = (prompt('Type? mcq / assignment', 'mcq') || 'mcq').toLowerCase();
+      const marks = parseInt(prompt('Total marks?', '20'), 10) || 20;
+      const dur = type === 'mcq' ? parseInt(prompt('Duration (min)?', '15'), 10) : null;
+      const list = Data.assessments();
+      list.push({ id: Data.uid('as'), courseId: cid, moduleId: null, title, type, durationMin: dur, marks, status: 'published',
+        questions: type === 'mcq' ? [] : undefined, prompt: type === 'assignment' ? prompt('Assignment prompt?') || '' : undefined });
+      Data.save(Data.KEYS.assessments, list); UI.toast('Assessment created.', 'success'); render();
+    });
+    document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
+      const list = Data.assessments(); const i = list.findIndex(x => x.id === b.dataset.toggle);
+      list[i].status = list[i].status === 'published' ? 'draft' : 'published';
+      Data.save(Data.KEYS.assessments, list); render();
+    }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Delete this assessment?')) return;
+      Data.save(Data.KEYS.assessments, Data.assessments().filter(x => x.id !== b.dataset.rm)); UI.toast('Deleted.', 'info'); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

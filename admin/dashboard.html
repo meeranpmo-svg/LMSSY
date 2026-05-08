@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Admin Dashboard', crumb: 'Overview', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data;
+  const courses = Data.courses();
+  const students = Data.students();
+  const subs = Data.submissions();
+  const doubts = Data.doubts();
+  const openDoubts = doubts.filter(d => d.status === 'open');
+
+  const completionAvg = (() => {
+    const list = Data.progress();
+    if (!list.length) return 0;
+    return Math.round(list.reduce((s, p) => s + p.percent, 0) / list.length);
+  })();
+
+  content.innerHTML = `
+    <div class="grid grid-4 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-graduation-cap"></i></div>
+        <div><div class="label">Active Courses</div><div class="value">${courses.length}</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-users"></i></div>
+        <div><div class="label">Enrolled Students</div><div class="value">${students.length}</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-chart-line"></i></div>
+        <div><div class="label">Avg. Completion</div><div class="value">${completionAvg}%</div></div></div>
+      <div class="stat-tile blue"><div class="ic"><i class="fa-solid fa-circle-question"></i></div>
+        <div><div class="label">Open Doubts</div><div class="value">${openDoubts.length}</div></div></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 2fr 1fr;">
+      <div class="card">
+        <div class="card-head"><h3>Course Performance</h3><a href="reports.html" class="btn btn-sm btn-ghost">Reports →</a></div>
+        <table class="table">
+          <thead><tr><th>Course</th><th>Students</th><th>Avg. Completion</th><th>Submissions</th></tr></thead>
+          <tbody>${courses.map(c => {
+            const enrolled = Data.enrolments().filter(e => e.courseId === c.id);
+            const progresses = Data.progress().filter(p => p.courseId === c.id);
+            const avg = progresses.length ? Math.round(progresses.reduce((s, p) => s + p.percent, 0) / progresses.length) : 0;
+            const cSubs = subs.filter(s => Data.assessments().find(a => a.id === s.assessmentId && a.courseId === c.id));
+            return `<tr>
+              <td><strong>${c.title}</strong><div class="text-xs text-muted">${c.code}</div></td>
+              <td>${enrolled.length}</td>
+              <td><div class="progress-bar" style="width:140px;"><span style="width:${avg}%"></span></div><div class="text-xs text-muted">${avg}%</div></td>
+              <td>${cSubs.length}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Recent Doubts</h3><a href="doubts.html" class="btn btn-sm btn-ghost">Manage →</a></div>
+        ${doubts.slice(0, 5).map(d => {
+          const stu = Data.findStudent(d.studentId);
+          const c = Data.findCourse(d.courseId);
+          return `<div style="padding:10px 0; border-bottom:1px dashed var(--gray-100);">
+            <div class="text-xs text-muted">${SYPA.UI.fmtDate(d.createdAt)} · ${stu ? stu.fullName : '?'} · ${c ? c.title : ''}</div>
+            <div class="text-sm" style="margin-top:2px;">${d.text.slice(0, 90)}${d.text.length > 90 ? '…' : ''}</div>
+            <span class="pill ${d.status === 'answered' ? 'success' : 'warning'}">${d.status}</span>
+          </div>`;
+        }).join('') || '<div class="empty">No doubts.</div>'}
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>

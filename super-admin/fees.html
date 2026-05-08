@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fees & Records — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'super', title: 'Fees & Records', crumb: 'Super Admin · Fees', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const fees = Data.fees();
+    const total = fees.reduce((s, f) => s + f.amount, 0);
+    const collected = fees.reduce((s, f) => s + f.paid, 0);
+    const pending = total - collected;
+
+    content.innerHTML = `
+      <div class="grid grid-3 mb-6">
+        <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-indian-rupee-sign"></i></div><div><div class="label">Total Billed</div><div class="value">₹${total.toLocaleString('en-IN')}</div></div></div>
+        <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-circle-check"></i></div><div><div class="label">Collected</div><div class="value">₹${collected.toLocaleString('en-IN')}</div></div></div>
+        <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="label">Outstanding</div><div class="value">₹${pending.toLocaleString('en-IN')}</div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Fee Records</h3></div>
+        <table class="table">
+          <thead><tr><th>Student</th><th>Course</th><th>Amount</th><th>Paid</th><th>Status</th><th>Due</th><th></th></tr></thead>
+          <tbody>${fees.map(f => {
+            const stu = Data.findStudent(f.studentId);
+            const c = Data.findCourse(f.courseId);
+            return `<tr>
+              <td>${stu ? stu.fullName : '—'}<div class="text-xs text-muted">${stu ? stu.studentId : ''}</div></td>
+              <td>${c ? c.title : '—'}</td>
+              <td>₹${f.amount.toLocaleString('en-IN')}</td>
+              <td>₹${f.paid.toLocaleString('en-IN')}</td>
+              <td><span class="pill ${f.status === 'paid' ? 'success' : f.status === 'partial' ? 'warning' : 'danger'}">${f.status}</span></td>
+              <td>${SYPA.UI.fmtDate(f.dueDate)}</td>
+              <td class="actions"><button class="btn btn-sm btn-primary" data-pay="${f.id}"><i class="fa-solid fa-receipt"></i> Record Payment</button></td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="7" class="empty">No records.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    document.querySelectorAll('[data-pay]').forEach(b => b.addEventListener('click', () => {
+      const list = Data.fees(); const i = list.findIndex(f => f.id === b.dataset.pay);
+      const amt = parseInt(prompt(`Add payment amount (₹). Outstanding: ₹${list[i].amount - list[i].paid}`), 10);
+      if (isNaN(amt) || amt <= 0) return;
+      list[i].paid = Math.min(list[i].amount, list[i].paid + amt);
+      list[i].status = list[i].paid >= list[i].amount ? 'paid' : 'partial';
+      Data.save(Data.KEYS.fees, list); UI.toast('Payment recorded.', 'success'); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

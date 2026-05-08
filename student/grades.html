@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grades & Feedback — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'Grades & Feedback', crumb: 'Learning · Grades' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data;
+  const subs = Data.submissionsForStudent(session.userId);
+
+  const totalScored = subs.filter(s => s.score != null).reduce((sum, s) => sum + s.score, 0);
+  const totalMax = subs.filter(s => s.score != null).reduce((sum, s) => sum + (s.total || 0), 0);
+  const overall = totalMax ? Math.round((totalScored / totalMax) * 100) : 0;
+
+  content.innerHTML = `
+    <div class="grid grid-3 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-clipboard-check"></i></div>
+        <div><div class="label">Submitted</div><div class="value">${subs.length}</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-trophy"></i></div>
+        <div><div class="label">Average</div><div class="value">${overall}%</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div><div class="label">Awaiting Grade</div><div class="value">${subs.filter(s => s.score == null).length}</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Submissions</h3></div>
+      ${subs.length ? `<table class="table">
+        <thead><tr><th>Assessment</th><th>Submitted</th><th>Score</th><th>Feedback</th></tr></thead>
+        <tbody>${subs.map(s => {
+          const a = Data.assessments().find(x => x.id === s.assessmentId);
+          const c = a ? Data.findCourse(a.courseId) : null;
+          return `<tr>
+            <td><strong>${a ? a.title : '—'}</strong><div class="text-xs text-muted">${c ? c.title : ''}</div></td>
+            <td>${SYPA.UI.fmtDate(s.submittedAt)}</td>
+            <td>${s.score != null ? `<span class="pill success">${s.score} / ${s.total}</span>` : '<span class="pill warning">Pending</span>'}</td>
+            <td class="text-sm text-muted">${s.feedback || '—'}</td>
+          </tr>`;
+        }).join('')}</tbody></table>` : '<div class="empty"><i class="fa-solid fa-square-poll-vertical"></i><div>No submissions yet — head to Assessments.</div></div>'}
+    </div>`;
+}
+</script>
+</body>
+</html>

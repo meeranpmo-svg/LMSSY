@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'Welcome back', crumb: 'Dashboard' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data;
+  const stu = Data.findStudent(session.userId);
+  const enrolments = Data.enrolmentsFor(stu.id);
+  const courses = enrolments.map(e => Data.findCourse(e.courseId)).filter(Boolean);
+
+  const totalModules = courses.reduce((sum, c) => sum + c.modules.length, 0);
+  const completedModules = enrolments.reduce((sum, e) => {
+    const p = Data.progressFor(stu.id, e.courseId); return sum + (p ? p.completed.length : 0);
+  }, 0);
+  const overallPct = totalModules ? Math.round((completedModules / totalModules) * 100) : 0;
+
+  const subs = Data.submissionsForStudent(stu.id);
+  const pendingAssessments = courses.flatMap(c => Data.assessmentsForCourse(c.id))
+                                    .filter(a => !subs.find(s => s.assessmentId === a.id));
+  const announcements = Data.announcements()
+    .filter(a => a.scope === 'global' || (a.scope === 'course' && enrolments.some(e => e.courseId === a.courseId)))
+    .slice(0, 4);
+
+  content.innerHTML = `
+    <div class="grid grid-4 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-graduation-cap"></i></div>
+        <div><div class="label">Enrolled Courses</div><div class="value">${courses.length}</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-list-check"></i></div>
+        <div><div class="label">Modules Done</div><div class="value">${completedModules}/${totalModules}</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-trophy"></i></div>
+        <div><div class="label">Overall Progress</div><div class="value">${overallPct}%</div></div></div>
+      <div class="stat-tile blue"><div class="ic"><i class="fa-solid fa-pen-to-square"></i></div>
+        <div><div class="label">Pending Assessments</div><div class="value">${pendingAssessments.length}</div></div></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 2fr 1fr;">
+      <div class="card">
+        <div class="card-head"><h3>Continue Learning</h3><a href="courses.html" class="btn btn-sm btn-ghost">All courses →</a></div>
+        <div class="grid grid-2">
+          ${courses.map((c, i) => {
+            const p = Data.progressFor(stu.id, c.id);
+            const pct = p ? p.percent : 0;
+            const last = p && p.lastModule ? c.modules.find(m => m.id === p.lastModule) : c.modules[0];
+            return `
+              <a class="course-card" href="lesson.html?course=${c.id}&m=${last ? last.id : c.modules[0].id}" style="text-decoration:none; color:inherit;">
+                <div class="course-thumb ${c.accent}">
+                  <i class="fa-solid ${c.icon}"></i>
+                  <span class="level-tag">${c.level}</span>
+                </div>
+                <div class="course-body">
+                  <h4>${c.title}</h4>
+                  <div class="meta"><span><i class="fa-regular fa-clock"></i> ${c.duration}</span><span><i class="fa-regular fa-circle-play"></i> ${c.modules.length} modules</span></div>
+                  <div class="progress-bar"><span style="width:${pct}%"></span></div>
+                  <div class="progress-label">${pct}% complete · Next: ${last ? last.title : '—'}</div>
+                </div>
+              </a>`;
+          }).join('') || `<div class="empty"><i class="fa-solid fa-book"></i><div>You aren't enrolled in any courses yet.</div></div>`}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Latest Announcements</h3><a href="announcements.html" class="btn btn-sm btn-ghost">View all →</a></div>
+        ${announcements.map(a => `
+          <div style="padding:10px 0; border-bottom:1px dashed var(--gray-100);">
+            <div class="text-xs text-muted">${SYPA.UI.fmtDate(a.postedAt)} · ${a.scope === 'course' ? 'Course notice' : 'Institute'}</div>
+            <div style="font-weight:600; margin:2px 0;">${a.title}</div>
+            <div class="text-sm text-muted">${a.body.slice(0, 110)}${a.body.length > 110 ? '…' : ''}</div>
+          </div>`).join('') || '<div class="empty">No announcements yet.</div>'}
+      </div>
+    </div>
+
+    <div class="card mt-6">
+      <div class="card-head"><h3>Pending Tasks</h3><a href="assessments.html" class="btn btn-sm btn-ghost">All assessments →</a></div>
+      ${pendingAssessments.length ? `
+      <table class="table">
+        <thead><tr><th>Assessment</th><th>Course</th><th>Type</th><th>Marks</th><th></th></tr></thead>
+        <tbody>${pendingAssessments.slice(0, 5).map(a => {
+          const c = Data.findCourse(a.courseId);
+          return `<tr>
+            <td>${a.title}</td>
+            <td>${c ? c.title : '—'}</td>
+            <td><span class="pill ${a.type === 'mcq' ? 'purple' : 'info'}">${a.type === 'mcq' ? 'MCQ Test' : 'Assignment'}</span></td>
+            <td>${a.marks}</td>
+            <td class="actions"><a class="btn btn-sm btn-primary" href="take-test.html?id=${a.id}">${a.type === 'mcq' ? 'Start' : 'Submit'}</a></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>` : '<div class="empty"><i class="fa-solid fa-circle-check"></i><div>You\'re all caught up!</div></div>'}
+    </div>
+  `;
+}
+</script>
+</body>
+</html>

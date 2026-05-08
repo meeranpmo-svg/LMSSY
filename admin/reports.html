@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports & Analytics — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Reports & Analytics', crumb: 'Overview · Reports', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data;
+  const courses = Data.courses();
+  const students = Data.students();
+  const subs = Data.submissions();
+  const progress = Data.progress();
+
+  const verifyRate = students.length ? Math.round((students.filter(s => s.verified).length / students.length) * 100) : 0;
+  const avgScore = (() => {
+    const graded = subs.filter(s => s.score != null && s.total);
+    if (!graded.length) return 0;
+    return Math.round(graded.reduce((sum, s) => sum + (s.score / s.total) * 100, 0) / graded.length);
+  })();
+
+  content.innerHTML = `
+    <div class="grid grid-4 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-users"></i></div>
+        <div><div class="label">Total Students</div><div class="value">${students.length}</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-circle-check"></i></div>
+        <div><div class="label">Email Verified</div><div class="value">${verifyRate}%</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-square-poll-vertical"></i></div>
+        <div><div class="label">Avg. Test Score</div><div class="value">${avgScore}%</div></div></div>
+      <div class="stat-tile blue"><div class="ic"><i class="fa-solid fa-clipboard-list"></i></div>
+        <div><div class="label">Submissions</div><div class="value">${subs.length}</div></div></div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h3>Enrolment by Course</h3></div>
+        ${courses.map(c => {
+          const count = Data.enrolments().filter(e => e.courseId === c.id).length;
+          const max = students.length || 1;
+          const pct = Math.round((count / max) * 100);
+          return `<div class="mb-4">
+            <div class="flex justify-between mb-2"><span style="font-weight:600;">${c.title}</span><span class="text-sm text-muted">${count} students</span></div>
+            <div class="progress-bar"><span style="width:${Math.max(pct, 6)}%;"></span></div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Completion Rate by Course</h3></div>
+        ${courses.map(c => {
+          const ps = progress.filter(p => p.courseId === c.id);
+          const avg = ps.length ? Math.round(ps.reduce((s, p) => s + p.percent, 0) / ps.length) : 0;
+          return `<div class="mb-4">
+            <div class="flex justify-between mb-2"><span style="font-weight:600;">${c.title}</span><span class="text-sm text-muted">${avg}%</span></div>
+            <div class="progress-bar"><span style="width:${avg}%; background:linear-gradient(90deg, var(--success), #34d399);"></span></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="card mt-6">
+      <div class="card-head"><h3>Activity Log (Recent)</h3></div>
+      <table class="table">
+        <thead><tr><th>Date</th><th>Student</th><th>Activity</th></tr></thead>
+        <tbody>
+          ${subs.slice(0, 8).map(s => {
+            const stu = Data.findStudent(s.studentId);
+            const a = Data.assessments().find(x => x.id === s.assessmentId);
+            return `<tr><td>${SYPA.UI.fmtDate(s.submittedAt)}</td><td>${stu ? stu.fullName : '—'}</td><td>Submitted "${a ? a.title : '—'}" (${s.score != null ? s.score + '/' + s.total : 'pending'})</td></tr>`;
+          }).join('')}
+          ${Data.doubts().slice(0, 5).map(d => {
+            const stu = Data.findStudent(d.studentId);
+            return `<tr><td>${SYPA.UI.fmtDate(d.createdAt)}</td><td>${stu ? stu.fullName : '—'}</td><td>Posted a doubt — ${d.status}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email — SYPA IICPR</title>
+  <link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="auth-page">
+  <aside class="auth-left">
+    <div class="brand">
+      <div class="brand-mark"><i class="fa-solid fa-envelope-circle-check"></i></div>
+      <div><h1>One last step</h1><div class="tagline">Verify your email to activate your account</div></div>
+    </div>
+    <div class="auth-foot">
+      <a href="index.html" style="color:rgba(255,255,255,0.85);">← Back to login</a>
+      <div class="powered-by">
+        Developed &amp; managed by <strong>Smart Shield AI &amp; Cyber Security</strong>
+      </div>
+    </div>
+  </aside>
+  <main class="auth-right">
+    <h2>Check your inbox</h2>
+    <p class="sub">We've sent a verification link to <strong id="email-out">your email</strong>. Click the link in that email to activate your SYPA IICPR account.</p>
+
+    <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i><div>This is a demo portal — click the button below to simulate clicking the verification link.</div></div>
+
+    <button id="verify-btn" class="btn btn-primary btn-block btn-lg">I've verified my email — log me in</button>
+    <button id="resend" class="btn btn-ghost btn-block mt-4"><i class="fa-solid fa-rotate"></i> Resend verification email</button>
+
+    <div class="text-sm text-muted mt-6" style="text-align:center;"><a href="index.html">Return to login</a></div>
+  </main>
+</div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/auth.js"></script>
+<script>
+  const { Data, Auth, UI } = window.SYPA;
+  const params = new URLSearchParams(location.search);
+  const email = params.get('email') || '';
+  document.getElementById('email-out').textContent = email || 'your registered email';
+
+  document.getElementById('verify-btn').addEventListener('click', () => {
+    const list = Data.students();
+    const i = list.findIndex(s => s.email === email);
+    if (i < 0) { UI.toast('Account not found. Please register again.', 'danger'); return; }
+    list[i].verified = true;
+    Data.save(Data.KEYS.students, list);
+    Auth.setSession({ role: 'student', userId: list[i].id, name: list[i].fullName, courseId: list[i].course });
+    UI.toast('Email verified! Welcome to SYPA IICPR.', 'success');
+    setTimeout(() => location.href = 'student/dashboard.html', 700);
+  });
+  document.getElementById('resend').addEventListener('click', () => UI.toast('Verification email re-sent (demo).', 'info'));
+</script>
+</body>
+</html>

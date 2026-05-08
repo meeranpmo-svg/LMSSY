@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admins / Faculty — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'super', title: 'Admins / Faculty', crumb: 'Super Admin · Accounts', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const list = Data.admins();
+    content.innerHTML = `
+      <div class="page-head">
+        <div><div class="desc">Provision and manage faculty / admin accounts. There is no public sign-up.</div></div>
+        <button class="btn btn-primary" id="new"><i class="fa-solid fa-user-plus"></i> Create Admin</button>
+      </div>
+      <div class="card">
+        <table class="table">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+          <tbody>${list.map(a => `<tr>
+            <td><strong>${a.name}</strong></td>
+            <td>${a.email}</td>
+            <td><span class="pill ${a.role === 'super' ? 'purple' : 'info'}">${a.role === 'super' ? 'Super Admin' : 'Admin / Instructor'}</span></td>
+            <td class="actions">
+              <button class="btn btn-sm btn-outline" data-edit="${a.id}"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-sm btn-outline" data-rm="${a.id}" ${a.role === 'super' && list.filter(x => x.role === 'super').length === 1 ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('new').addEventListener('click', () => {
+      const name = prompt('Full name?'); if (!name) return;
+      const email = prompt('Institute email?'); if (!email) return;
+      const role = (prompt('Role? admin / super', 'admin') || 'admin').toLowerCase();
+      const password = prompt('Initial password?', 'change-me-123');
+      const list2 = Data.admins();
+      list2.push({ id: Data.uid('adm'), name, email, role, password });
+      Data.save(Data.KEYS.admins, list2); UI.toast('Admin created.', 'success'); render();
+    });
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+      const list2 = Data.admins(); const i = list2.findIndex(x => x.id === b.dataset.edit);
+      const n = prompt('Name:', list2[i].name); if (!n) return;
+      list2[i].name = n; Data.save(Data.KEYS.admins, list2); UI.toast('Saved.', 'success'); render();
+    }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Remove this admin?')) return;
+      Data.save(Data.KEYS.admins, Data.admins().filter(x => x.id !== b.dataset.rm)); UI.toast('Removed.', 'info'); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "SYPA LMS",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8090", "--directory", "C:\\Users\\Syed\\Desktop\\Montessori\\.claude\\worktrees\\sad-satoshi-222d6b\\sypa-lms"],
+      "port": 8090
+    }
+  ]
+}

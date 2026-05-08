@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doubt Management — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Doubt Management', crumb: 'Communication · Doubts', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render(filter) {
+    const all = Data.doubts();
+    const list = filter === 'open' ? all.filter(d => d.status === 'open') : filter === 'answered' ? all.filter(d => d.status === 'answered') : all;
+    content.innerHTML = `
+      <div class="page-head">
+        <div class="role-tabs" style="margin:0;">
+          <button class="${!filter ? 'active' : ''}" data-f="">All (${all.length})</button>
+          <button class="${filter === 'open' ? 'active' : ''}" data-f="open">Open (${all.filter(d => d.status === 'open').length})</button>
+          <button class="${filter === 'answered' ? 'active' : ''}" data-f="answered">Answered (${all.filter(d => d.status === 'answered').length})</button>
+        </div>
+      </div>
+      <div class="card">
+        ${list.map(d => {
+          const stu = Data.findStudent(d.studentId);
+          const c = Data.findCourse(d.courseId);
+          return `<div style="padding:14px 0; border-bottom:1px dashed var(--gray-100);">
+            <div class="flex items-center justify-between mb-2">
+              <div><strong>${stu ? stu.fullName : '—'}</strong> <span class="text-xs text-muted">· ${c ? c.title : '—'} · ${SYPA.UI.fmtDate(d.createdAt)}</span></div>
+              <span class="pill ${d.status === 'answered' ? 'success' : 'warning'}">${d.status}</span>
+            </div>
+            <div style="margin-bottom:8px;">${d.text}</div>
+            ${d.reply ? `<div class="alert alert-success" style="margin:6px 0;"><i class="fa-solid fa-comment-dots"></i><div><strong>${d.repliedBy}:</strong> ${d.reply}</div></div>` : ''}
+            <button class="btn btn-sm btn-${d.status === 'answered' ? 'outline' : 'primary'}" data-reply="${d.id}"><i class="fa-solid fa-reply"></i> ${d.status === 'answered' ? 'Edit Reply' : 'Reply'}</button>
+          </div>`;
+        }).join('') || '<div class="empty"><i class="fa-solid fa-comments"></i><div>No doubts to manage.</div></div>'}
+      </div>`;
+
+    document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => render(b.dataset.f)));
+    document.querySelectorAll('[data-reply]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.reply;
+      const list2 = Data.doubts(); const i = list2.findIndex(d => d.id === id);
+      const reply = prompt('Your reply:', list2[i].reply || ''); if (!reply) return;
+      list2[i].reply = reply; list2[i].repliedBy = session.name; list2[i].status = 'answered';
+      Data.save(Data.KEYS.doubts, list2); UI.toast('Reply sent.', 'success'); render(filter);
+    }));
+  }
+  render('');
+}
+</script>
+</body>
+</html>

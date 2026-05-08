@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Courses — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'My Courses', crumb: 'Learning · Courses' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data;
+  const stu = Data.findStudent(session.userId);
+  const enrolments = Data.enrolmentsFor(stu.id);
+  const courses = enrolments.map(e => Data.findCourse(e.courseId)).filter(Boolean);
+
+  content.innerHTML = `
+    <div class="page-head">
+      <div><div class="desc">Your enrolled programs at SYPA IICPR Institute.</div></div>
+      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="q" placeholder="Search courses…"></div>
+    </div>
+    <div id="course-grid" class="grid grid-3"></div>`;
+
+  function render(filter) {
+    const filtered = courses.filter(c => !filter || c.title.toLowerCase().includes(filter));
+    document.getElementById('course-grid').innerHTML = filtered.map(c => {
+      const p = Data.progressFor(stu.id, c.id);
+      const pct = p ? p.percent : 0;
+      return `
+      <div class="course-card">
+        <div class="course-thumb ${c.accent}"><i class="fa-solid ${c.icon}"></i><span class="level-tag">${c.level}</span></div>
+        <div class="course-body">
+          <h4>${c.title}</h4>
+          <div class="text-sm text-muted mb-4">${c.description}</div>
+          <div class="meta"><span><i class="fa-regular fa-clock"></i> ${c.duration}</span><span><i class="fa-solid fa-list"></i> ${c.modules.length} modules</span></div>
+          <div class="progress-bar"><span style="width:${pct}%"></span></div>
+          <div class="progress-label">${pct}% complete</div>
+          <div class="split mt-4">
+            <a class="btn btn-primary btn-sm" href="lesson.html?course=${c.id}"><i class="fa-solid fa-play"></i> ${pct ? 'Resume' : 'Start'}</a>
+            <a class="btn btn-outline btn-sm" href="assessments.html?course=${c.id}">Assessments</a>
+          </div>
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty"><i class="fa-solid fa-book"></i><div>No courses match your search.</div></div>';
+  }
+  render('');
+  document.getElementById('q').addEventListener('input', (e) => render(e.target.value.toLowerCase()));
+}
+</script>
+</body>
+</html>

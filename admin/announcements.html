@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Announcements — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Announcements', crumb: 'Communication · Announcements', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const list = Data.announcements();
+    content.innerHTML = `
+      <div class="grid" style="grid-template-columns: 1fr 2fr;">
+        <div class="card">
+          <div class="card-head"><h3>Post New Notice</h3></div>
+          <div class="form-group"><label>Scope</label>
+            <select id="scope" class="form-control"><option value="global">Institute-wide</option><option value="course">Course-specific</option></select></div>
+          <div class="form-group" id="course-wrap" style="display:none;"><label>Course</label>
+            <select id="course" class="form-control">${Data.courses().map(c => `<option value="${c.id}">${c.title}</option>`).join('')}</select></div>
+          <div class="form-group"><label>Title</label><input id="title" class="form-control"></div>
+          <div class="form-group"><label>Body</label><textarea id="body" class="form-control" rows="5"></textarea></div>
+          <button class="btn btn-primary btn-block" id="post"><i class="fa-solid fa-paper-plane"></i> Post Announcement</button>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Posted</h3><span class="text-sm text-muted">${list.length} total</span></div>
+          ${list.map(a => `
+            <div class="card mb-4" style="box-shadow:none; border-color:var(--gray-100);">
+              <div class="flex items-center justify-between mb-2">
+                <span class="pill ${a.scope === 'course' ? 'purple' : 'info'}">${a.scope === 'course' ? (Data.findCourse(a.courseId)?.title || 'Course') : 'Institute'}</span>
+                <div class="actions">
+                  <span class="text-xs text-muted">${SYPA.UI.fmtDate(a.postedAt)}</span>
+                  <button class="btn btn-sm btn-ghost" data-rm="${a.id}"><i class="fa-solid fa-trash"></i></button>
+                </div>
+              </div>
+              <h4 style="margin-bottom:6px;">${a.title}</h4>
+              <div class="text-muted text-sm">${a.body}</div>
+            </div>`).join('') || '<div class="empty">No announcements.</div>'}
+        </div>
+      </div>`;
+
+    document.getElementById('scope').addEventListener('change', (e) => {
+      document.getElementById('course-wrap').style.display = e.target.value === 'course' ? '' : 'none';
+    });
+    document.getElementById('post').addEventListener('click', () => {
+      const title = document.getElementById('title').value.trim();
+      const body = document.getElementById('body').value.trim();
+      if (!title || !body) return UI.toast('Title and body are required.', 'warning');
+      const scope = document.getElementById('scope').value;
+      Data.addAnnouncement({
+        id: Data.uid('an'), scope,
+        courseId: scope === 'course' ? document.getElementById('course').value : null,
+        title, body, postedBy: session.name, postedAt: new Date().toISOString().slice(0,10),
+      });
+      UI.toast('Announcement posted.', 'success'); render();
+    });
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Delete announcement?')) return;
+      Data.save(Data.KEYS.announcements, Data.announcements().filter(x => x.id !== b.dataset.rm)); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

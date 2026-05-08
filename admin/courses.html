@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Courses & Modules — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Courses & Modules', crumb: 'Content · Courses', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const courses = Data.courses();
+    content.innerHTML = `
+      <div class="page-head">
+        <div><div class="desc">Create, edit, archive courses and structure their modules.</div></div>
+        <button class="btn btn-primary" id="new-course"><i class="fa-solid fa-plus"></i> New Course</button>
+      </div>
+      <div class="grid grid-2">${courses.map(c => `
+        <div class="card">
+          <div class="card-head">
+            <div><h3>${c.title}</h3><div class="text-sm text-muted">${c.code} · ${c.level} · ${c.duration}</div></div>
+            <div class="actions">
+              <button class="btn btn-sm btn-outline" data-edit="${c.id}"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-sm btn-outline" data-archive="${c.id}"><i class="fa-solid fa-box-archive"></i></button>
+            </div>
+          </div>
+          <div class="text-sm text-muted mb-4">${c.description}</div>
+          <h4 class="mb-2">Modules (${c.modules.length})</h4>
+          <ul class="module-list">${c.modules.map((m, i) => `
+            <li><span class="kbd-shortcut">${i + 1}</span> ${m.title}<span style="margin-left:auto;" class="text-xs text-muted">${m.duration} · ${m.resources} files</span></li>
+          `).join('')}</ul>
+          <button class="btn btn-sm btn-ghost mt-4" data-add-mod="${c.id}"><i class="fa-solid fa-plus"></i> Add Module</button>
+        </div>`).join('')}</div>`;
+
+    document.getElementById('new-course').addEventListener('click', () => {
+      const title = prompt('Course title?');
+      if (!title) return;
+      const level = prompt('Level (e.g. Diploma / Adv. Diploma / Certificate)?', 'Diploma');
+      const duration = prompt('Duration (e.g. 6 months)?', '6 months');
+      const list = Data.courses();
+      list.push({ id: Data.uid('crs'), code: 'NEW-' + (list.length + 1), title, level, duration, icon: 'fa-book', accent: '', description: 'Newly added course.', modules: [] });
+      Data.save(Data.KEYS.courses, list);
+      UI.toast('Course created.', 'success');
+      render();
+    });
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.edit;
+      const list = Data.courses(); const i = list.findIndex(c => c.id === id);
+      const t = prompt('New title:', list[i].title); if (!t) return;
+      list[i].title = t; Data.save(Data.KEYS.courses, list); UI.toast('Saved.', 'success'); render();
+    }));
+    document.querySelectorAll('[data-archive]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Archive this course?')) return;
+      const id = b.dataset.archive;
+      const list = Data.courses().filter(c => c.id !== id);
+      Data.save(Data.KEYS.courses, list); UI.toast('Course archived.', 'info'); render();
+    }));
+    document.querySelectorAll('[data-add-mod]').forEach(b => b.addEventListener('click', () => {
+      const cid = b.dataset.addMod;
+      const list = Data.courses(); const i = list.findIndex(c => c.id === cid);
+      const t = prompt('Module title:'); if (!t) return;
+      list[i].modules.push({ id: 'm' + (list[i].modules.length + 1), title: t, duration: '— min', resources: 0 });
+      Data.save(Data.KEYS.courses, list); UI.toast('Module added.', 'success'); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

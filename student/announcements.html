@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Announcements — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'Announcements', crumb: 'Communication · Notices' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data;
+  const stu = Data.findStudent(session.userId);
+  const enrolledCourses = Data.enrolmentsFor(stu.id).map(e => e.courseId);
+  const list = Data.announcements().filter(a => a.scope === 'global' || (a.scope === 'course' && enrolledCourses.includes(a.courseId)));
+
+  content.innerHTML = `<div class="card">
+    <div class="card-head"><h3>${list.length} notice${list.length === 1 ? '' : 's'}</h3>
+      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="q" placeholder="Filter…"></div></div>
+    <div id="list">${list.map(a => `
+      <div class="card mb-4" style="box-shadow:none; border-color:var(--gray-100);">
+        <div class="flex items-center justify-between mb-2">
+          <span class="pill ${a.scope === 'course' ? 'purple' : 'info'}">${a.scope === 'course' ? (Data.findCourse(a.courseId)?.title || 'Course') : 'Institute'}</span>
+          <span class="text-xs text-muted">${SYPA.UI.fmtDate(a.postedAt)} · ${a.postedBy}</span>
+        </div>
+        <h4 style="margin-bottom:6px;">${a.title}</h4>
+        <div class="text-muted text-sm">${a.body}</div>
+      </div>`).join('') || '<div class="empty">No announcements.</div>'}</div></div>`;
+
+  document.getElementById('q').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('#list > .card').forEach(card => {
+      card.style.display = card.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batches — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Batches', crumb: 'People · Batches', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+
+  function render() {
+    const list = Data.batches();
+    content.innerHTML = `
+      <div class="page-head">
+        <div><div class="desc">Manage student cohorts per course and intake.</div></div>
+        <button class="btn btn-primary" id="new"><i class="fa-solid fa-plus"></i> Create Batch</button>
+      </div>
+      <div class="grid grid-3">${list.map(b => {
+        const c = Data.findCourse(b.courseId);
+        const enrolled = Data.enrolments().filter(e => e.batchId === b.id).length || b.students;
+        return `
+          <div class="card">
+            <div class="card-head"><div><h3>${b.name}</h3><div class="text-sm text-muted">${c ? c.title : '—'}</div></div>
+              <span class="pill purple">${enrolled} students</span></div>
+            <div class="text-sm text-muted"><i class="fa-regular fa-calendar"></i> Starts ${SYPA.UI.fmtDate(b.startDate)}</div>
+            <div class="split mt-4">
+              <button class="btn btn-sm btn-outline" data-edit="${b.id}"><i class="fa-solid fa-pen"></i> Rename</button>
+              <button class="btn btn-sm btn-outline" data-rm="${b.id}"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>`;
+      }).join('') || '<div class="empty">No batches yet.</div>'}</div>`;
+
+    document.getElementById('new').addEventListener('click', () => {
+      const courses = Data.courses();
+      const name = prompt('Batch name?'); if (!name) return;
+      const cid = prompt('Course ID:\n' + courses.map(c => `${c.id} — ${c.title}`).join('\n'), courses[0].id); if (!cid) return;
+      const start = prompt('Start date (YYYY-MM-DD)?', new Date().toISOString().slice(0, 10)); if (!start) return;
+      const list2 = Data.batches();
+      list2.push({ id: Data.uid('b'), courseId: cid, name, startDate: start, students: 0 });
+      Data.save(Data.KEYS.batches, list2); UI.toast('Batch created.', 'success'); render();
+    });
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.edit;
+      const list2 = Data.batches(); const i = list2.findIndex(x => x.id === id);
+      const n = prompt('New name:', list2[i].name); if (!n) return;
+      list2[i].name = n; Data.save(Data.KEYS.batches, list2); UI.toast('Renamed.', 'success'); render();
+    }));
+    document.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Delete batch?')) return;
+      Data.save(Data.KEYS.batches, Data.batches().filter(x => x.id !== b.dataset.rm)); UI.toast('Deleted.', 'info'); render();
+    }));
+  }
+  render();
+}
+</script>
+</body>
+</html>

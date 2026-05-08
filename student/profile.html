@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'My Profile', crumb: 'Account · Profile' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+  const stu = Data.findStudent(session.userId);
+  const course = Data.findCourse(stu.course);
+  const enrol = Data.enrolmentsFor(stu.id)[0];
+  const batch = enrol ? Data.batches().find(b => b.id === enrol.batchId) : null;
+
+  content.innerHTML = `
+    <div class="grid" style="grid-template-columns: 1fr 2fr;">
+      <div class="card" style="text-align:center;">
+        <div style="width:96px; height:96px; border-radius:50%; background:var(--primary-light); color:var(--primary-dark); display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:700; margin:8px auto 14px;">${UI.initials(stu.fullName)}</div>
+        <h3>${stu.fullName}</h3>
+        <div class="text-muted text-sm">${stu.studentId} · ${stu.email}</div>
+        <div class="mt-4 split" style="justify-content:center;">
+          <span class="pill purple">${course ? course.level : '—'}</span>
+          <span class="pill ${stu.verified ? 'success' : 'warning'}">${stu.verified ? 'Verified' : 'Unverified'}</span>
+        </div>
+        <div class="mt-6 text-sm text-muted" style="text-align:left;">
+          <div><strong>Enrolment:</strong> ${course ? course.title : '—'}</div>
+          <div><strong>Batch:</strong> ${batch ? batch.name : '—'}</div>
+          <div><strong>Joined:</strong> ${UI.fmtDate(stu.createdAt)}</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card mb-4">
+          <div class="card-head"><h3>Personal Details</h3>
+            <button class="btn btn-sm btn-outline" id="save"><i class="fa-solid fa-save"></i> Save Changes</button></div>
+          <div class="form-row">
+            <div class="form-group"><label>Full Name</label><input id="fullName" class="form-control" value="${stu.fullName}"></div>
+            <div class="form-group"><label>Email</label><input class="form-control" value="${stu.email}" disabled></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mobile</label><input id="mobile" class="form-control" value="${stu.mobile}"></div>
+            <div class="form-group"><label>Date of Birth</label><input class="form-control" value="${stu.dob}" disabled></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>City</label><input id="city" class="form-control" value="${stu.city}"></div>
+            <div class="form-group"><label>State</label><input id="state" class="form-control" value="${stu.state}"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Qualification</label><input id="qualification" class="form-control" value="${stu.qualification}"></div>
+            <div class="form-group"><label>Occupation</label><input id="occupation" class="form-control" value="${stu.occupation || ''}"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Change Password</h3></div>
+          <div class="form-row">
+            <div class="form-group"><label>Current</label><input id="cur" type="password" class="form-control"></div>
+            <div class="form-group"><label>New</label><input id="np1" type="password" class="form-control"></div>
+            <div class="form-group"><label>Confirm</label><input id="np2" type="password" class="form-control"></div>
+          </div>
+          <button class="btn btn-primary" id="pw"><i class="fa-solid fa-key"></i> Update Password</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('save').addEventListener('click', () => {
+    const list = Data.students();
+    const i = list.findIndex(s => s.id === stu.id);
+    list[i] = Object.assign(list[i], {
+      fullName: document.getElementById('fullName').value.trim(),
+      mobile: document.getElementById('mobile').value.trim(),
+      city: document.getElementById('city').value.trim(),
+      state: document.getElementById('state').value.trim(),
+      qualification: document.getElementById('qualification').value.trim(),
+      occupation: document.getElementById('occupation').value.trim(),
+    });
+    Data.save(Data.KEYS.students, list);
+    SYPA.Auth.setSession(Object.assign(SYPA.Auth.getSession(), { name: list[i].fullName }));
+    UI.toast('Profile updated.', 'success');
+  });
+  document.getElementById('pw').addEventListener('click', () => {
+    const cur = document.getElementById('cur').value;
+    const n1 = document.getElementById('np1').value;
+    const n2 = document.getElementById('np2').value;
+    if (cur !== stu.password) return UI.toast('Current password incorrect.', 'danger');
+    if (n1.length < 6) return UI.toast('Password must be at least 6 characters.', 'warning');
+    if (n1 !== n2) return UI.toast('New passwords do not match.', 'danger');
+    const list = Data.students();
+    const i = list.findIndex(s => s.id === stu.id);
+    list[i].password = n1;
+    Data.save(Data.KEYS.students, list);
+    UI.toast('Password updated.', 'success');
+  });
+}
+</script>
+</body>
+</html>

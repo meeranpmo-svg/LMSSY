@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Upload — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'admin', allow: ['admin', 'super'], title: 'Content Upload', crumb: 'Content · Upload', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+  const courses = Data.courses();
+
+  content.innerHTML = `
+    <div class="grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="card">
+        <div class="card-head"><h3>Upload Video / PDF / Slides</h3></div>
+        <div class="form-group"><label>Course</label>
+          <select id="course" class="form-control">${courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Module</label>
+          <select id="module" class="form-control"></select></div>
+        <div class="form-group"><label>Resource Type</label>
+          <select id="type" class="form-control"><option>Video Lecture</option><option>PDF Notes</option><option>Slides</option><option>Reading List</option></select></div>
+        <div class="form-group"><label>Title / Description</label><input id="title" class="form-control" placeholder="e.g. Module 2 — Reading 1: Cognitive Theory"></div>
+        <div class="form-group"><label>File</label><input type="file" class="form-control"></div>
+        <div class="form-group"><label>Visibility</label>
+          <select id="vis" class="form-control"><option>Published</option><option>Draft</option><option>Hidden</option></select></div>
+        <button class="btn btn-primary btn-block" id="upload"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Module Order</h3><span class="text-sm text-muted">Drag to reorder (demo)</span></div>
+        <select id="course2" class="form-control mb-4">${courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}</select>
+        <ul class="module-list" id="ord"></ul>
+      </div>
+    </div>`;
+
+  function refreshModules() {
+    const cid = document.getElementById('course').value;
+    const c = Data.findCourse(cid);
+    const sel = document.getElementById('module');
+    sel.innerHTML = c.modules.map(m => `<option value="${m.id}">${m.title}</option>`).join('');
+  }
+  function refreshOrder() {
+    const cid = document.getElementById('course2').value;
+    const c = Data.findCourse(cid);
+    document.getElementById('ord').innerHTML = c.modules.map((m, i) => `
+      <li><span class="kbd-shortcut">${i + 1}</span> ${m.title}<span style="margin-left:auto;" class="text-xs text-muted">${m.duration} · ${m.resources} files</span></li>
+    `).join('');
+  }
+  document.getElementById('course').addEventListener('change', refreshModules);
+  document.getElementById('course2').addEventListener('change', refreshOrder);
+  refreshModules(); refreshOrder();
+
+  document.getElementById('upload').addEventListener('click', () => {
+    const title = document.getElementById('title').value.trim();
+    if (!title) return UI.toast('Add a title.', 'warning');
+    const cid = document.getElementById('course').value;
+    const mid = document.getElementById('module').value;
+    const list = Data.courses();
+    const ci = list.findIndex(c => c.id === cid);
+    const mi = list[ci].modules.findIndex(m => m.id === mid);
+    list[ci].modules[mi].resources = (list[ci].modules[mi].resources || 0) + 1;
+    Data.save(Data.KEYS.courses, list);
+    UI.toast('Resource attached to module.', 'success');
+    refreshOrder();
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doubts & Queries — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'Doubts & Queries', crumb: 'Communication · Doubts' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+  const stu = Data.findStudent(session.userId);
+  const enrolments = Data.enrolmentsFor(stu.id);
+  const myDoubts = Data.doubtsForStudent(stu.id);
+
+  content.innerHTML = `
+    <div class="grid" style="grid-template-columns: 1fr 2fr;">
+      <div class="card">
+        <div class="card-head"><h3>Submit a Doubt</h3></div>
+        <div class="form-group"><label>Course</label>
+          <select id="course" class="form-control">
+            ${enrolments.map(e => { const c = Data.findCourse(e.courseId); return `<option value="${c.id}">${c.title}</option>`; }).join('')}
+          </select></div>
+        <div class="form-group"><label>Module</label>
+          <select id="module" class="form-control"></select></div>
+        <div class="form-group"><label>Your question</label>
+          <textarea id="text" class="form-control" rows="5" placeholder="Type your doubt for the faculty..."></textarea></div>
+        <button class="btn btn-primary btn-block" id="send"><i class="fa-solid fa-paper-plane"></i> Send</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Your Doubts</h3><span class="text-sm text-muted">${myDoubts.length} total</span></div>
+        ${myDoubts.length ? myDoubts.map(d => {
+          const c = Data.findCourse(d.courseId);
+          return `<div class="card mb-4" style="box-shadow:none; border-color:var(--gray-100);">
+            <div class="flex items-center justify-between mb-2">
+              <span class="pill purple">${c ? c.title : '—'}</span>
+              <span class="text-xs text-muted">${SYPA.UI.fmtDate(d.createdAt)}</span>
+            </div>
+            <div style="font-weight:600; margin-bottom:6px;"><i class="fa-solid fa-circle-question"></i> ${d.text}</div>
+            ${d.reply ? `<div class="alert alert-success" style="margin:0;"><i class="fa-solid fa-comment-dots"></i><div><strong>${d.repliedBy}:</strong> ${d.reply}</div></div>` : '<span class="pill warning">Awaiting faculty reply</span>'}
+          </div>`;
+        }).join('') : '<div class="empty"><i class="fa-solid fa-circle-question"></i><div>No doubts yet.</div></div>'}
+      </div>
+    </div>`;
+
+  function refreshModules() {
+    const cid = document.getElementById('course').value;
+    const c = Data.findCourse(cid);
+    const sel = document.getElementById('module');
+    sel.innerHTML = (c ? c.modules : []).map(m => `<option value="${m.id}">${m.title}</option>`).join('');
+  }
+  document.getElementById('course').addEventListener('change', refreshModules);
+  refreshModules();
+  document.getElementById('send').addEventListener('click', () => {
+    const text = document.getElementById('text').value.trim();
+    if (!text) return UI.toast('Type your question first.', 'warning');
+    Data.addDoubt({ id: Data.uid('d'), studentId: stu.id, courseId: document.getElementById('course').value, moduleId: document.getElementById('module').value, text, reply: null, repliedBy: null, createdAt: new Date().toISOString().slice(0,10), status: 'open' });
+    UI.toast('Doubt submitted!', 'success');
+    setTimeout(() => location.reload(), 600);
+  });
+}
+</script>
+</body>
+</html>

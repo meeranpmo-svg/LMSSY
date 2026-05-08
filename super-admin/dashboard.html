@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Dashboard — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'super', title: 'Master Dashboard', crumb: 'Super Admin', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data;
+  const courses = Data.courses(), students = Data.students(), admins = Data.admins(), batches = Data.batches();
+  const fees = Data.fees();
+  const totalFees = fees.reduce((s, f) => s + f.amount, 0);
+  const collected = fees.reduce((s, f) => s + f.paid, 0);
+  const pendingAmt = totalFees - collected;
+
+  content.innerHTML = `
+    <div class="grid grid-4 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-graduation-cap"></i></div><div><div class="label">Courses</div><div class="value">${courses.length}</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-users"></i></div><div><div class="label">Students</div><div class="value">${students.length}</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-user-shield"></i></div><div><div class="label">Admins / Faculty</div><div class="value">${admins.length}</div></div></div>
+      <div class="stat-tile blue"><div class="ic"><i class="fa-solid fa-layer-group"></i></div><div><div class="label">Active Batches</div><div class="value">${batches.length}</div></div></div>
+    </div>
+
+    <div class="grid grid-3 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-indian-rupee-sign"></i></div><div><div class="label">Total Billed</div><div class="value">₹${totalFees.toLocaleString('en-IN')}</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-circle-check"></i></div><div><div class="label">Collected</div><div class="value">₹${collected.toLocaleString('en-IN')}</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="label">Outstanding</div><div class="value">₹${pendingAmt.toLocaleString('en-IN')}</div></div></div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h3>Quick Actions</h3></div>
+        <div class="grid grid-2">
+          <a class="btn btn-outline" href="admins.html"><i class="fa-solid fa-user-plus"></i> Manage Admins</a>
+          <a class="btn btn-outline" href="settings.html"><i class="fa-solid fa-gear"></i> Institute Settings</a>
+          <a class="btn btn-outline" href="fees.html"><i class="fa-solid fa-receipt"></i> Fees Records</a>
+          <a class="btn btn-outline" href="reports.html"><i class="fa-solid fa-chart-pie"></i> Master Reports</a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Recent Sign-ups</h3></div>
+        <table class="table">
+          <thead><tr><th>Student</th><th>Course</th><th>Joined</th></tr></thead>
+          <tbody>${students.slice().reverse().slice(0, 6).map(s => {
+            const c = Data.findCourse(s.course);
+            return `<tr><td>${s.fullName}<div class="text-xs text-muted">${s.studentId}</div></td><td>${c ? c.title : '—'}</td><td>${SYPA.UI.fmtDate(s.createdAt)}</td></tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>

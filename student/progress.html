@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Progress — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'My Progress', crumb: 'Learning · Progress' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data;
+  const stu = Data.findStudent(session.userId);
+  const enrolments = Data.enrolmentsFor(stu.id);
+
+  content.innerHTML = `<div class="grid">${enrolments.map(en => {
+    const c = Data.findCourse(en.courseId);
+    const p = Data.progressFor(stu.id, en.courseId) || { completed: [], percent: 0, lastModule: null };
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div><h3>${c.title}</h3><div class="text-sm text-muted">${c.level} · ${c.duration}</div></div>
+          <span class="pill ${p.percent >= 80 ? 'success' : p.percent >= 40 ? 'purple' : 'warning'}">${p.percent}% complete</span>
+        </div>
+        <div class="progress-bar mb-4"><span style="width:${p.percent}%"></span></div>
+        <ul class="module-list">
+          ${c.modules.map(m => {
+            const done = p.completed.includes(m.id);
+            return `<li class="${done ? 'done' : ''}"><i class="fa-solid fa-${done ? 'circle-check' : 'circle'}"></i> ${m.title}<span style="margin-left:auto;" class="text-xs text-muted">${m.duration}</span></li>`;
+          }).join('')}
+        </ul>
+      </div>`;
+  }).join('')}</div>`;
+}
+</script>
+</body>
+</html>

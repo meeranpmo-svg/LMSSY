@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Institute Settings — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'super', title: 'Institute Settings', crumb: 'Super Admin · Settings', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+  const s = Data.settings();
+
+  content.innerHTML = `
+    <div class="grid" style="grid-template-columns: 2fr 1fr;">
+      <div class="card">
+        <div class="card-head"><h3>General</h3></div>
+        <div class="form-row">
+          <div class="form-group"><label>Institute Name</label><input id="instituteName" class="form-control" value="${s.instituteName || ''}"></div>
+          <div class="form-group"><label>Tagline</label><input id="tagline" class="form-control" value="${s.tagline || ''}"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Contact Email</label><input id="contactEmail" type="email" class="form-control" value="${s.contactEmail || ''}"></div>
+          <div class="form-group"><label>Contact Phone</label><input id="contactPhone" class="form-control" value="${s.contactPhone || ''}"></div>
+        </div>
+        <div class="form-group"><label>Address</label><input id="address" class="form-control" value="${s.address || ''}"></div>
+        <div class="form-group"><label>Certificate Signatory</label><input id="signatory" class="form-control" value="${s.certificateSignatory || ''}"></div>
+        <button class="btn btn-primary" id="save"><i class="fa-solid fa-save"></i> Save Settings</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>System</h3></div>
+        <p class="text-sm text-muted mb-4">Maintenance helpers for this demo.</p>
+        <button class="btn btn-outline btn-block mb-4" id="reseed"><i class="fa-solid fa-rotate"></i> Reset demo data</button>
+        <div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation"></i><div>This will erase all local LMS data and reseed defaults.</div></div>
+      </div>
+    </div>`;
+
+  document.getElementById('save').addEventListener('click', () => {
+    const next = {
+      instituteName: document.getElementById('instituteName').value.trim(),
+      tagline: document.getElementById('tagline').value.trim(),
+      contactEmail: document.getElementById('contactEmail').value.trim(),
+      contactPhone: document.getElementById('contactPhone').value.trim(),
+      address: document.getElementById('address').value.trim(),
+      certificateSignatory: document.getElementById('signatory').value.trim(),
+    };
+    Data.save(Data.KEYS.settings, next);
+    UI.toast('Settings saved.', 'success');
+  });
+  document.getElementById('reseed').addEventListener('click', () => {
+    if (!confirm('Wipe local data and reseed?')) return;
+    Object.values(Data.KEYS).forEach(k => localStorage.removeItem(k));
+    location.reload();
+  });
+}
+</script>
+</body>
+</html>

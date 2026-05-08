@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'student', title: 'Lesson Player', crumb: 'Learning · Lessons' });
+if (ctx) {
+  const { session, content } = ctx;
+  const Data = SYPA.Data, UI = SYPA.UI;
+  const stu = Data.findStudent(session.userId);
+  const params = new URLSearchParams(location.search);
+  const enrolments = Data.enrolmentsFor(stu.id);
+
+  let courseId = params.get('course') || (enrolments[0] && enrolments[0].courseId);
+  let course = Data.findCourse(courseId);
+  if (!course) { content.innerHTML = '<div class="empty"><i class="fa-solid fa-circle-exclamation"></i><div>No course found. Enrol via Courses page.</div></div>'; }
+  else {
+    let moduleId = params.get('m') || (Data.progressFor(stu.id, course.id) || {}).lastModule || course.modules[0].id;
+    function render() {
+      const mod = course.modules.find(m => m.id === moduleId) || course.modules[0];
+      const progress = Data.progressFor(stu.id, course.id) || { completed: [], percent: 0 };
+      const isDone = progress.completed.includes(mod.id);
+
+      content.innerHTML = `
+        <div class="page-head">
+          <div>
+            <div class="desc">${course.title} · ${course.level}</div>
+            <h1>${mod.title}</h1>
+          </div>
+          <div class="split">
+            <button class="btn btn-outline btn-sm" id="prev"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+            <button class="btn btn-primary btn-sm" id="next">Next <i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+
+        <div class="lesson-layout">
+          <div>
+            <div class="video-stage">
+              <div class="placeholder">
+                <i class="fa-solid fa-circle-play"></i>
+                <div>Video lecture · ${mod.duration}</div>
+                <div class="text-sm" style="opacity:.6; margin-top:6px;">Stream attached by faculty in production</div>
+              </div>
+            </div>
+            <div class="card mt-4">
+              <div class="card-head"><h3>Lesson Notes</h3>
+                <button class="btn btn-sm btn-${isDone ? 'outline' : 'primary'}" id="mark-done">
+                  <i class="fa-solid fa-${isDone ? 'check-double' : 'check'}"></i> ${isDone ? 'Completed' : 'Mark complete'}
+                </button>
+              </div>
+              <p class="text-muted">This module covers the foundations — refer to the attached PDF, slide deck and reading list. Use the Doubt Box on the right to send a question to your instructor.</p>
+              <h4 class="mt-4 mb-2">Resources (${mod.resources})</h4>
+              <ul class="module-list">
+                ${Array.from({ length: mod.resources }).map((_, i) => `
+                  <li><i class="fa-regular fa-file-pdf"></i> ${mod.title} — Reading ${i + 1}.pdf <span class="ml-auto" style="margin-left:auto;"><a class="btn btn-sm btn-ghost" href="#" onclick="event.preventDefault(); SYPA.UI.toast('Download starts in production', 'info');"><i class="fa-solid fa-download"></i></a></span></li>
+                `).join('')}
+              </ul>
+            </div>
+          </div>
+
+          <aside>
+            <div class="card mb-4">
+              <div class="card-head"><h3>Course Outline</h3><span class="pill purple">${progress.percent || 0}%</span></div>
+              <ul class="module-list" id="outline">
+                ${course.modules.map(m => {
+                  const done = progress.completed.includes(m.id);
+                  const active = m.id === mod.id ? 'active' : '';
+                  return `<li class="${active} ${done ? 'done' : ''}" data-id="${m.id}">
+                    <i class="fa-solid fa-${done ? 'circle-check' : 'play'}"></i>
+                    <span>${m.title}</span>
+                  </li>`;
+                }).join('')}
+              </ul>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Ask a Doubt</h3></div>
+              <textarea id="doubt-text" class="form-control" rows="4" placeholder="Submit a question for this module..."></textarea>
+              <button class="btn btn-primary btn-sm mt-4" id="submit-doubt"><i class="fa-solid fa-paper-plane"></i> Send to Faculty</button>
+            </div>
+          </aside>
+        </div>`;
+
+      document.querySelectorAll('#outline li').forEach(li => li.addEventListener('click', () => {
+        moduleId = li.dataset.id;
+        history.replaceState(null, '', `?course=${course.id}&m=${moduleId}`);
+        render();
+      }));
+      document.getElementById('mark-done').addEventListener('click', () => {
+        Data.updateProgress(stu.id, course.id, mod.id);
+        UI.toast('Module marked complete!', 'success');
+        render();
+      });
+      document.getElementById('prev').addEventListener('click', () => {
+        const idx = course.modules.findIndex(m => m.id === mod.id);
+        if (idx > 0) { moduleId = course.modules[idx - 1].id; render(); }
+      });
+      document.getElementById('next').addEventListener('click', () => {
+        const idx = course.modules.findIndex(m => m.id === mod.id);
+        if (idx < course.modules.length - 1) { moduleId = course.modules[idx + 1].id; render(); }
+      });
+      document.getElementById('submit-doubt').addEventListener('click', () => {
+        const text = document.getElementById('doubt-text').value.trim();
+        if (!text) return UI.toast('Please type your question.', 'warning');
+        Data.addDoubt({ id: Data.uid('d'), studentId: stu.id, courseId: course.id, moduleId: mod.id, text, reply: null, repliedBy: null, createdAt: new Date().toISOString().slice(0,10), status: 'open' });
+        document.getElementById('doubt-text').value = '';
+        UI.toast('Doubt sent to faculty.', 'success');
+      });
+    }
+    render();
+  }
+}
+</script>
+</body>
+</html>

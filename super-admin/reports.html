@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Reports — SYPA IICPR</title>
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+<script src="../assets/js/data.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+const ctx = SYPA.Shell.mount({ role: 'super', title: 'Master Reports', crumb: 'Super Admin · Reports', redirectTo: '../admin-login.html' });
+if (ctx) {
+  const { content } = ctx;
+  const Data = SYPA.Data;
+  const courses = Data.courses(), students = Data.students(), batches = Data.batches();
+  const fees = Data.fees();
+  const subs = Data.submissions();
+  const progress = Data.progress();
+
+  function exportCsv() {
+    const rows = [['Student ID', 'Name', 'Email', 'Course', 'Progress %', 'Fee Status']];
+    students.forEach(s => {
+      const c = Data.findCourse(s.course);
+      const p = Data.progressFor(s.id, s.course);
+      const fee = fees.find(f => f.studentId === s.id);
+      rows.push([s.studentId, s.fullName, s.email, c ? c.title : '', p ? p.percent : 0, fee ? fee.status : '—']);
+    });
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'sypa-master-report.csv'; a.click();
+  }
+
+  content.innerHTML = `
+    <div class="page-head">
+      <div><div class="desc">Cross-course master reporting for institute leadership.</div></div>
+      <button class="btn btn-primary" id="csv"><i class="fa-solid fa-download"></i> Export CSV</button>
+    </div>
+
+    <div class="grid grid-4 mb-6">
+      <div class="stat-tile purple"><div class="ic"><i class="fa-solid fa-graduation-cap"></i></div><div><div class="label">Active Courses</div><div class="value">${courses.length}</div></div></div>
+      <div class="stat-tile orange"><div class="ic"><i class="fa-solid fa-users"></i></div><div><div class="label">Total Students</div><div class="value">${students.length}</div></div></div>
+      <div class="stat-tile green"><div class="ic"><i class="fa-solid fa-clipboard-check"></i></div><div><div class="label">Submissions</div><div class="value">${subs.length}</div></div></div>
+      <div class="stat-tile blue"><div class="ic"><i class="fa-solid fa-layer-group"></i></div><div><div class="label">Batches</div><div class="value">${batches.length}</div></div></div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-head"><h3>Per-Course Snapshot</h3></div>
+      <table class="table">
+        <thead><tr><th>Course</th><th>Code</th><th>Students</th><th>Avg Completion</th><th>Submissions</th><th>Avg Score</th></tr></thead>
+        <tbody>${courses.map(c => {
+          const enr = Data.enrolments().filter(e => e.courseId === c.id).length;
+          const ps = progress.filter(p => p.courseId === c.id);
+          const avg = ps.length ? Math.round(ps.reduce((s, p) => s + p.percent, 0) / ps.length) : 0;
+          const cAss = Data.assessments().filter(a => a.courseId === c.id).map(a => a.id);
+          const cSubs = subs.filter(s => cAss.includes(s.assessmentId));
+          const graded = cSubs.filter(s => s.score != null && s.total);
+          const avgScore = graded.length ? Math.round(graded.reduce((s, x) => s + (x.score / x.total) * 100, 0) / graded.length) : 0;
+          return `<tr>
+            <td><strong>${c.title}</strong></td><td>${c.code}</td><td>${enr}</td>
+            <td><div class="progress-bar" style="width:140px;"><span style="width:${avg}%"></span></div><div class="text-xs text-muted">${avg}%</div></td>
+            <td>${cSubs.length}</td><td>${avgScore}%</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Per-Batch Snapshot</h3></div>
+      <table class="table">
+        <thead><tr><th>Batch</th><th>Course</th><th>Start</th><th>Students</th></tr></thead>
+        <tbody>${batches.map(b => {
+          const c = Data.findCourse(b.courseId);
+          const enrolled = Data.enrolments().filter(e => e.batchId === b.id).length || b.students;
+          return `<tr><td>${b.name}</td><td>${c ? c.title : '—'}</td><td>${SYPA.UI.fmtDate(b.startDate)}</td><td>${enrolled}</td></tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('csv').addEventListener('click', exportCsv);
+}
+</script>
+</body>
+</html>
